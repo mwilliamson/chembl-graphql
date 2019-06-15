@@ -15,7 +15,7 @@ setup(
     author='Michael Williamson',
     author_email='mike@zwobble.org',
     url='http://github.com/mwilliamson/chembl-graphql',
-    packages=['chembl_graphql'],
+    packages=['chembl_graphql', 'chembl_graphql.graph'],
     keywords="chembl graphql",
     install_requires=[
         "Flask==1.0.3",
