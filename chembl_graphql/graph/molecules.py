@@ -8,6 +8,7 @@ from .. import database
 Molecule = g.ObjectType(
     "Molecule",
     fields=lambda: (
+        g.field("pref_name", type=g.NullableType(g.String)),
         g.field("chembl_id", type=g.String),
     ),
 )
@@ -23,6 +24,7 @@ resolve_molecule = gsql.sql_table_resolver(
     Molecule,
     database.Molecule,
     fields=lambda: {
+        Molecule.fields.pref_name: gsql.expression(database.Molecule.pref_name),
         Molecule.fields.chembl_id: gsql.expression(database.Molecule.chembl_id),
     },
 )
