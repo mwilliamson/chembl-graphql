@@ -17,5 +17,12 @@ class Builder(object):
     def _generate_molecule(self, **kwargs):
         return database.Molecule(**kwargs)
 
+    def add_molecule_synonym(self, **kwargs):
+        return self._add_instance(self._generate_molecule_synonym(**kwargs))
+
+    def _generate_molecule_synonym(self, **kwargs):
+        return database.MoleculeSynonym(**kwargs)
+
     def _add_instance(self, instance):
         self._session.add(instance)
+        return instance
