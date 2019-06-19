@@ -1,6 +1,31 @@
 from precisely import anything, assert_that, contains_exactly, is_mapping
 
 
+def test_when_there_are_no_molecules_then_connection_is_empty(graphql):
+    query = """
+        query {
+            moleculesConnection(first: 2) {
+                edges {
+                    node {
+                        chemblId
+                    }
+                }
+                pageInfo {
+                    endCursor
+                    hasNextPage
+                }
+            }
+        }
+    """
+
+    response = graphql(query)
+
+    assert_that(response["moleculesConnection"], is_mapping({
+        "edges": contains_exactly(),
+        "pageInfo": is_mapping({"endCursor": None, "hasNextPage": False}),
+    }))
+
+
 def test_when_there_are_more_molecules_than_requested_then_first_molecules_are_fetched(builder, graphql):
     with builder:
         builder.add_molecule(chembl_id="CHEMBL42")
