@@ -8,7 +8,7 @@ Query = g.ObjectType(
     "Query",
     fields=lambda: (
         g.field("molecules", type=g.ListType(molecules.Molecule)),
-        molecules.molecules_connection_field("molecules_connection"),
+        molecules.molecules_connection.field("molecules_connection"),
     ),
 )
 
@@ -23,7 +23,7 @@ def query_resolve_molecules(graph, query, args):
 
 @resolve_query.field(Query.fields.molecules_connection)
 def query_resolve_molecules_connection(graph, query, args):
-    return graph.resolve(molecules.MoleculesConnectionQuery.select_field(query, args=args))
+    return graph.resolve(molecules.molecules_connection.select_field(query, args=args))
 
 
 resolvers = (resolve_query, )
