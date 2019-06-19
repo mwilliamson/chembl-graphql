@@ -26,11 +26,19 @@ def graphql_api():
 
     engine = sqlalchemy.create_engine(os.environ["DATABASE"])
     session = sqlalchemy.orm.Session(engine)
+
+    import cProfile
+    profile = cProfile.Profile()
+    profile.enable()
+
     result = graphql.execute(
         args["query"],
         variables=args.get("variables"),
         session=session,
     )
+
+    profile.disable()
+    profile.dump_stats("graphql2.cprof")
 
     return flask.jsonify({
         "data": result.data,

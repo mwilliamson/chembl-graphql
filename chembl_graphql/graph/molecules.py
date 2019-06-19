@@ -1,6 +1,7 @@
 import graphlayer as g
 import graphlayer.sqlalchemy as gsql
 import graphlayer.graphql
+import sqlalchemy.orm
 
 from .. import database
 
@@ -20,6 +21,10 @@ class MoleculeQuery(object):
     def select(query):
         return gsql.select(query)
 
+    @staticmethod
+    def select_by_molregno(query, molregnos):
+        return gsql.select(query).by(database.Molecule.molregno, molregnos)
+
 
 resolve_molecule = gsql.sql_table_resolver(
     Molecule,
@@ -34,6 +39,102 @@ resolve_molecule = gsql.sql_table_resolver(
             ),
         ),
     },
+)
+
+
+def molecules_connection_field(name):
+    return g.field(name, type=MoleculesConnection, params=(
+        g.param("first", type=g.Int),
+    ))
+
+
+MoleculesConnection = g.ObjectType(
+    "MoleculesConnection",
+    fields=lambda: (
+        g.field("edges", type=g.ListType(MoleculeEdge)),
+        g.field("page_info", type=PageInfo),
+    ),
+)
+
+
+class MoleculesConnectionQuery(object):
+    @staticmethod
+    def select_field(query, *, args):
+        return MoleculesConnectionQuery(type_query=query, first=args.first)
+
+    def __init__(self, *, type_query, first):
+        self.type = MoleculesConnectionQuery
+        self.type_query = type_query
+        self.first = first
+
+
+@g.dependencies(session=sqlalchemy.orm.Session)
+@g.resolver(MoleculesConnectionQuery)
+def resolve_molecules_connection(graph, query, *, session):
+    build_molecules_connection = g.create_object_builder(query.type_query)
+
+    def fetch_cursors(*, after_cursor, limit):
+        query = session.query(database.Molecule.molregno) \
+            .order_by(database.Molecule.molregno)
+
+        if after_cursor is not None:
+            query = query.filter(database.Molecule.molregno > after_cursor)
+
+        query = query.limit(limit)
+
+        return [molregno for molregno, in query]
+
+    edge_cursors = fetch_cursors(after_cursor=None, limit=query.first + 1)
+    if len(edge_cursors) > query.first:
+        edge_cursors = edge_cursors[:-1]
+        has_next_page = True
+    else:
+        has_next_page = False
+
+    @build_molecules_connection.field(MoleculesConnection.fields.edges)
+    def field_edges(field_query):
+
+        build_edge = g.create_object_builder(field_query.type_query.element_query)
+
+        @build_edge.field(MoleculeEdge.fields.node)
+        def field_node(field_query):
+            edges = graph.resolve(
+                MoleculeQuery.select_by_molregno(field_query.type_query, edge_cursors)
+            )
+
+            return lambda edge_cursor: edges[edge_cursor]
+
+        return lambda _: [
+            build_edge(edge_cursor)
+            for edge_cursor in edge_cursors
+        ]
+
+    @build_molecules_connection.field(MoleculesConnection.fields.page_info)
+    def field_page_info(field_query):
+        build_page_info = g.create_object_builder(field_query.type_query)
+
+        @build_page_info.getter(PageInfo.fields.has_next_page)
+        def field_has_next_page(_):
+            return has_next_page
+
+        return lambda _: build_page_info(None)
+
+    return build_molecules_connection(None)
+
+
+MoleculeEdge = g.ObjectType(
+    "MoleculeEdge",
+    fields=lambda: (
+        g.field("node", type=Molecule),
+    ),
+)
+
+
+PageInfo = g.ObjectType(
+    "PageInfo",
+    fields=lambda: (
+        g.field("has_next_page", type=g.Boolean),
+    ),
 )
 
 
@@ -60,4 +161,8 @@ resolve_molecule_synonym = gsql.sql_table_resolver(
 )
 
 
-resolvers = (resolve_molecule, resolve_molecule_synonym)
+resolvers = (
+    resolve_molecule,
+    resolve_molecules_connection,
+    resolve_molecule_synonym,
+)
