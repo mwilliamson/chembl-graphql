@@ -118,7 +118,7 @@ def test_when_there_are_exactly_number_of_molecules_requested_then_all_molecules
     }))
 
 
-def test_cursor_can_be_used_as_after_argument_to_get_next_page(builder, graphql):
+def test_end_cursor_can_be_used_as_after_argument_to_get_next_page(builder, graphql):
     with builder:
         builder.add_molecule(chembl_id="CHEMBL42")
         builder.add_molecule(chembl_id="CHEMBL43")
@@ -172,4 +172,39 @@ def test_cursor_can_be_used_as_after_argument_to_get_next_page(builder, graphql)
     assert_that(response["moleculesConnection"], is_mapping({
         "edges": contains_exactly(),
         "pageInfo": is_mapping({"endCursor": None, "hasNextPage": False}),
+    }))
+
+
+def test_edge_cursor_can_be_used_as_after_argument_to_get_next_page(builder, graphql):
+    with builder:
+        builder.add_molecule(chembl_id="CHEMBL42")
+        builder.add_molecule(chembl_id="CHEMBL43")
+        builder.add_molecule(chembl_id="CHEMBL44")
+
+    query = """
+        query ($after: String) {
+            moleculesConnection(first: 2, after: $after) {
+                edges {
+                    cursor
+                    node {
+                        chemblId
+                    }
+                }
+            }
+        }
+    """
+
+    response = graphql(query, variables={"after": None})
+    assert_that(response["moleculesConnection"], is_mapping({
+        "edges": contains_exactly(
+            is_mapping({"cursor": anything, "node": {"chemblId": "CHEMBL42"}}),
+            is_mapping({"cursor": anything, "node": {"chemblId": "CHEMBL43"}}),
+        ),
+    }))
+
+    response = graphql(query, variables={"after": response["moleculesConnection"]["edges"][-1]["cursor"]})
+    assert_that(response["moleculesConnection"], is_mapping({
+        "edges": contains_exactly(
+            is_mapping({"cursor": anything, "node": {"chemblId": "CHEMBL44"}}),
+        ),
     }))

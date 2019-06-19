@@ -100,6 +100,10 @@ def resolve_molecules_connection(graph, query, *, session):
 
         build_edge = g.create_object_builder(field_query.type_query.element_query)
 
+        @build_edge.getter(MoleculeEdge.fields.cursor)
+        def field_cursor(cursor):
+            return _encode_cursor(cursor)
+
         @build_edge.field(MoleculeEdge.fields.node)
         def field_node(field_query):
             edges = graph.resolve(
@@ -144,6 +148,7 @@ def _decode_cursor(cursor):
 MoleculeEdge = g.ObjectType(
     "MoleculeEdge",
     fields=lambda: (
+        g.field("cursor", type=g.String),
         g.field("node", type=Molecule),
     ),
 )
