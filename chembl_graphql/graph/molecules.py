@@ -1,3 +1,5 @@
+import base64
+
 import graphlayer as g
 import graphlayer.sqlalchemy as gsql
 import graphlayer.graphql
@@ -44,6 +46,7 @@ resolve_molecule = gsql.sql_table_resolver(
 
 def molecules_connection_field(name):
     return g.field(name, type=MoleculesConnection, params=(
+        g.param("after", type=g.NullableType(g.String), default=None),
         g.param("first", type=g.Int),
     ))
 
@@ -60,12 +63,13 @@ MoleculesConnection = g.ObjectType(
 class MoleculesConnectionQuery(object):
     @staticmethod
     def select_field(query, *, args):
-        return MoleculesConnectionQuery(type_query=query, first=args.first)
+        return MoleculesConnectionQuery(type_query=query, first=args.first, after=args.after)
 
-    def __init__(self, *, type_query, first):
+    def __init__(self, *, type_query, first, after):
         self.type = MoleculesConnectionQuery
         self.type_query = type_query
         self.first = first
+        self.after = after
 
 
 @g.dependencies(session=sqlalchemy.orm.Session)
@@ -78,13 +82,13 @@ def resolve_molecules_connection(graph, query, *, session):
             .order_by(database.Molecule.molregno)
 
         if after_cursor is not None:
-            query = query.filter(database.Molecule.molregno > after_cursor)
+            query = query.filter(database.Molecule.molregno > _decode_cursor(after_cursor))
 
         query = query.limit(limit)
 
         return [molregno for molregno, in query]
 
-    edge_cursors = fetch_cursors(after_cursor=None, limit=query.first + 1)
+    edge_cursors = fetch_cursors(after_cursor=query.after, limit=query.first + 1)
     if len(edge_cursors) > query.first:
         edge_cursors = edge_cursors[:-1]
         has_next_page = True
@@ -117,9 +121,24 @@ def resolve_molecules_connection(graph, query, *, session):
         def field_has_next_page(_):
             return has_next_page
 
+        @build_page_info.getter(PageInfo.fields.end_cursor)
+        def field_end_cursor(_):
+            if edge_cursors:
+                return _encode_cursor(edge_cursors[-1])
+            else:
+                return None
+
         return lambda _: build_page_info(None)
 
     return build_molecules_connection(None)
+
+
+def _encode_cursor(cursor):
+    return base64.b64encode(str(cursor).encode("ascii")).decode("ascii")
+
+
+def _decode_cursor(cursor):
+    return int(base64.b64decode(cursor.encode("ascii")).decode("ascii"))
 
 
 MoleculeEdge = g.ObjectType(
@@ -133,6 +152,7 @@ MoleculeEdge = g.ObjectType(
 PageInfo = g.ObjectType(
     "PageInfo",
     fields=lambda: (
+        g.field("end_cursor", type=g.NullableType(g.String)),
         g.field("has_next_page", type=g.Boolean),
     ),
 )
