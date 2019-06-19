@@ -1,10 +1,9 @@
 import graphlayer as g
+import graphlayer.connections
 import graphlayer.sqlalchemy as gsql
-import graphlayer.graphql
 import sqlalchemy.orm
 
 from .. import database
-from . import connections
 
 
 Molecule = g.ObjectType(
@@ -56,12 +55,12 @@ def _fetch_molecule_cursors(*, after_cursor, limit, session):
     return [molregno for molregno, in query]
 
 
-molecules_connection = connections.forward_connection(
+molecules_connection = graphlayer.connections.forward_connection(
     connection_type_name="MoleculesConnection",
     node_type=Molecule,
     select_by_cursor=MoleculeQuery.select_by_molregno,
     fetch_cursors=_fetch_molecule_cursors,
-    cursor_encoding=connections.int_cursor_encoding,
+    cursor_encoding=graphlayer.connections.int_cursor_encoding,
 )
 
 
