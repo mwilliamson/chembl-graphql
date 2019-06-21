@@ -19,7 +19,7 @@ setup(
     keywords="chembl graphql",
     install_requires=[
         "Flask==1.0.3",
-        "graphlayer[graphql]==0.2.2",
+        "graphlayer[graphql]==0.2.3",
         "sqlalchemy==1.3.4",
     ],
     classifiers=[

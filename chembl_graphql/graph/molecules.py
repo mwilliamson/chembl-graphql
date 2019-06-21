@@ -1,7 +1,6 @@
 import graphlayer as g
 import graphlayer.connections
 import graphlayer.sqlalchemy as gsql
-import sqlalchemy.orm
 
 from .. import database
 
@@ -42,25 +41,11 @@ resolve_molecule = gsql.sql_table_resolver(
 )
 
 
-@g.dependencies(session=sqlalchemy.orm.Session)
-def _fetch_molecule_cursors(*, after_cursor, limit, session):
-    query = session.query(database.Molecule.molregno) \
-        .order_by(database.Molecule.molregno)
-
-    if after_cursor is not None:
-        query = query.filter(database.Molecule.molregno > after_cursor)
-
-    query = query.limit(limit)
-
-    return [molregno for molregno, in query]
-
-
-molecules_connection = graphlayer.connections.forward_connection(
+molecules_connection = gsql.forward_connection(
     connection_type_name="MoleculesConnection",
     node_type=Molecule,
-    select_by_cursor=MoleculeQuery.select_by_molregno,
-    fetch_cursors=_fetch_molecule_cursors,
-    cursor_encoding=graphlayer.connections.int_cursor_encoding,
+    key=database.Molecule.molregno,
+    select_by_key=MoleculeQuery.select_by_molregno,
 )
 
 
